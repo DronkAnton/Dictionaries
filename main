@@ -1,0 +1,945 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Text.Json;
+
+namespace ConsoleApp5
+{
+    public class Dictionary 
+    {
+        public string Path { get; set; } = @"C:\Users\User\source\repos\экз\экз\dictionaries";
+        public string Name { get; set; }
+        public string FilePath => System.IO.Path.Combine(Path, Name + ".txt"); // вычисляется каждый раз, когда к нему обращаются 
+        public List<Word> Words { get; set; } = new List<Word>();
+        public string FavouritesPath { get; set; } = @"C:\Users\User\source\repos\экз\экз\favourites\FWords.txt";
+        public List<Word> FavouritesWords { get; set; } = new List<Word>();
+
+        public Dictionary(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                throw new ArgumentException("Имя не может быть пустым!");
+            }
+            Name = name;
+        }
+
+        public void CreateDictionary()
+        {
+            string directoryPath = System.IO.Path.Combine(Path, Name);
+            Directory.CreateDirectory(directoryPath);
+
+            string dictionaryFilePath = System.IO.Path.Combine(directoryPath, Name + ".txt");
+            File.Create(dictionaryFilePath).Close();
+
+            Console.WriteLine($"Словарь '{Name}' создан.\nНажмите любую клавишу для продолжения...");
+            Console.ReadKey();
+        }
+
+        public static Dictionary ChooseDictionary(List<Dictionary> dictionaries)
+        {
+            int dictionaryIndex = 0;
+
+            while (true)
+            {
+                Console.Clear();
+                Console.WriteLine("Выберите словарь:");
+
+                for (int i = 0; i < dictionaries.Count; i++)
+                {
+                    if (i == dictionaryIndex)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Yellow;
+                        Console.WriteLine($"> {dictionaries[i].Name}");
+                        Console.ResetColor();
+                    }
+                    else
+                    {
+                        Console.WriteLine($"  {dictionaries[i].Name}");
+                    }
+                }
+
+                var key = Console.ReadKey(true).Key;
+                switch (key)
+                {
+                    case ConsoleKey.Enter:
+                        return dictionaries[dictionaryIndex];
+                    case ConsoleKey.UpArrow:
+                        dictionaryIndex = Math.Max(0, dictionaryIndex - 1);
+                        break;
+                    case ConsoleKey.DownArrow:
+                        dictionaryIndex = Math.Min(dictionaries.Count - 1, dictionaryIndex + 1);
+                        break;
+                }
+            }
+        }
+
+        public void AddWord(Word word)
+        {
+            if (!Words.Exists(w => w.Term == word.Term))
+            {
+                Words.Add(word);
+            }
+        }
+
+        public void AddWordAndTranslate(Word word)
+        {
+            using (StreamWriter sw = new StreamWriter(FilePath, true))
+            {
+                sw.WriteLine($"{word.Term} - {string.Join(",", word.Translations)}");
+            }
+        }
+
+        public static void SaveDictionaries(List<Dictionary> dictionaries)
+        {
+            string json = JsonSerializer.Serialize(dictionaries);
+            File.WriteAllText(@"C:\Users\User\source\repos\экз\экз\dictionaries.json", json);
+        }
+
+        public static List<Dictionary> LoadDictionaries()
+        {
+            if (File.Exists(@"C:\Users\User\source\repos\экз\экз\dictionaries.json"))
+            {
+                string json = File.ReadAllText(@"C:\Users\User\source\repos\экз\экз\dictionaries.json");
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+                return JsonSerializer.Deserialize<List<Dictionary>>(json, options);
+            }
+            return new List<Dictionary>();
+        }
+
+        public static void DrawMenu(string[] list, int index)
+        {
+            Console.Clear();
+            for (int i = 0; i < list.Length; i++)
+            {
+                if (i == index)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"> {list[i]}");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    Console.WriteLine($"  {list[i]}");
+                }
+            }
+        }
+
+
+        public static void DrawMenu(List<Dictionary> list, int index)
+        {
+            Console.Clear();
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (i == index)
+                {
+                    Console.BackgroundColor = ConsoleColor.Yellow;
+                    Console.ForegroundColor = ConsoleColor.Black;
+                }
+                else
+                {
+                    Console.ResetColor();
+                }
+                Console.WriteLine(list[i].Name);
+            }
+            Console.ResetColor();
+        }
+
+
+        public void UpdateWord()
+        {
+            if (Words.Count == 0)
+            {
+                Console.WriteLine($"Словарь '{Name}' пуст. Добавьте слово с переводом сначала.");
+                Console.WriteLine("Нажмите любую клавишу для продолжения...");
+                Console.ReadKey();
+                return;
+            }
+
+            int selectedIndex = 0;
+
+            while (true)
+            {
+                Console.Clear();
+                Console.WriteLine($"Выберите слово для изменения в словаре '{Name}':");
+                DrawWordsMenu(selectedIndex);
+
+                var key = Console.ReadKey(true).Key;
+                if (key == ConsoleKey.Enter)
+                {
+                    if (selectedIndex == Words.Count)
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Введите новое название для слова '{Words[selectedIndex].Term}':");
+                        string newTerm = Console.ReadLine();
+                        Words[selectedIndex].Term = newTerm;
+                        using (StreamWriter sw = new StreamWriter(FilePath))
+                        {
+                            foreach (var word in Words)
+                            {
+                                sw.WriteLine($"{word.Term} - {string.Join(",", word.Translations)}");
+                            }
+                        }
+                        Console.WriteLine($"Слово изменено на '{newTerm}'. Нажмите любую клавишу для продолжения...");
+                        Console.ReadKey();
+                        return;
+                    }
+                }
+                else if (key == ConsoleKey.UpArrow)
+                {
+                    selectedIndex = Math.Max(0, selectedIndex - 1);
+                }
+                else if (key == ConsoleKey.DownArrow)
+                {
+                    selectedIndex = Math.Min(Words.Count, selectedIndex + 1);
+                }
+            }
+        }
+
+
+        public void UpdateTranslation()
+        {
+            if (Words.Count == 0)
+            {
+                Console.WriteLine($"Словарь '{Name}' пуст. Добавьте слово с переводом сначала.");
+                Console.WriteLine("Нажмите любую клавишу для продолжения...");
+                Console.ReadKey();
+                return;
+            }
+
+            int selectedWordIndex = 0;
+            int selectedTranslationIndex = 0;
+
+            while (true)
+            {
+                Console.Clear();
+                Console.WriteLine($"Выберите слово для изменения перевода в словаре '{Name}':");
+                DrawWordsMenu(selectedWordIndex);
+
+                var key = Console.ReadKey(true).Key;
+                if (key == ConsoleKey.Enter)
+                {
+                    if (selectedWordIndex == Words.Count)
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        Word selectedWord = Words[selectedWordIndex];
+                        while (true)
+                        {
+                            Console.Clear();
+                            Console.WriteLine($"Выберите перевод для слова '{selectedWord.Term}':");
+                            DrawTranslationsMenu(selectedWord, selectedTranslationIndex);
+
+                            var translationKey = Console.ReadKey(true).Key;
+                            if (translationKey == ConsoleKey.Enter)
+                            {
+                                if (selectedTranslationIndex == selectedWord.Translations.Count)
+                                {
+                                    break;
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"Введите новый перевод для слова '{selectedWord.Term}' (текущий перевод: '{selectedWord.Translations[selectedTranslationIndex]}'):");
+                                    string newTranslation = Console.ReadLine();
+                                    selectedWord.Translations[selectedTranslationIndex] = newTranslation;
+                                    using (StreamWriter sw = new StreamWriter(FilePath))
+                                    {
+                                        foreach (var word in Words)
+                                        {
+                                            sw.WriteLine($"{word.Term} - {string.Join(",", word.Translations)}");
+                                        }
+                                    }
+                                    Console.WriteLine($"Перевод изменен на '{newTranslation}'. Нажмите любую клавишу для продолжения...");
+                                    Console.ReadKey();
+                                    return;
+                                }
+                            }
+                            else if (translationKey == ConsoleKey.UpArrow)
+                            {
+                                selectedTranslationIndex = Math.Max(0, selectedTranslationIndex - 1);
+                            }
+                            else if (translationKey == ConsoleKey.DownArrow)
+                            {
+                                selectedTranslationIndex = Math.Min(selectedWord.Translations.Count, selectedTranslationIndex + 1); 
+                            }
+                        }
+                    }
+                }
+                else if (key == ConsoleKey.UpArrow)
+                {
+                    selectedWordIndex = Math.Max(0, selectedWordIndex - 1);
+                }
+                else if (key == ConsoleKey.DownArrow)
+                {
+                    selectedWordIndex = Math.Min(Words.Count, selectedWordIndex + 1); 
+                }
+            }
+        }
+
+
+        public void DeleteWord()
+        {
+            if (Words.Count == 0)
+            {
+                Console.WriteLine($"Словарь '{Name}' пуст. Добавьте слово с переводом сначала.");
+                Console.WriteLine("Нажмите любую клавишу для продолжения...");
+                Console.ReadKey();
+                return;
+            }
+
+            int selectedIndex = 0;
+
+            while (true)
+            {
+                Console.Clear();
+                Console.WriteLine($"Выберите слово для удаления в словаре '{Name}':");
+                DrawWordsMenu(selectedIndex);
+
+                var key = Console.ReadKey(true).Key;
+                if (key == ConsoleKey.Enter)
+                {
+                    if (selectedIndex == Words.Count)
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Вы уверены, что хотите удалить слово '{Words[selectedIndex].Term}'? Нажмите Enter для подтверждения.");
+                        var confirmationKey = Console.ReadKey(true).Key;
+                        if (confirmationKey == ConsoleKey.Enter)
+                        {
+                            Words.RemoveAt(selectedIndex);
+                            using (StreamWriter sw = new StreamWriter(FilePath))
+                            {
+                                foreach (var word in Words)
+                                {
+                                    sw.WriteLine($"{word.Term} - {string.Join(",", word.Translations)}");
+                                }
+                            }
+                            Console.WriteLine($"Слово удалено. Нажмите любую клавишу для продолжения...");
+                            Console.ReadKey();
+                        }
+                    }
+                    return;
+                }
+                else if (key == ConsoleKey.UpArrow)
+                {
+                    selectedIndex = Math.Max(0, selectedIndex - 1);
+                }
+                else if (key == ConsoleKey.DownArrow)
+                {
+                    selectedIndex = Math.Min(Words.Count, selectedIndex + 1);
+                }
+            }
+        }
+
+        public void DeleteTranslation()
+        {
+            if (Words.Count == 0)
+            {
+                Console.WriteLine($"Словарь '{Name}' пуст. Добавьте слово с переводом сначала.");
+                Console.WriteLine("Нажмите любую клавишу для продолжения...");
+                Console.ReadKey();
+                return;
+            }
+
+            int selectedWordIndex = 0;
+            int selectedTranslationIndex = 0;
+
+            while (true)
+            {
+                Console.Clear();
+                Console.WriteLine($"Выберите слово для удаления перевода в словаре '{Name}':");
+                DrawWordsMenu(selectedWordIndex);
+
+                var key = Console.ReadKey(true).Key;
+                if (key == ConsoleKey.Enter)
+                {
+                    if (selectedWordIndex == Words.Count)
+                    {
+                        return;
+                    }
+                    else
+                    {
+                        Word selectedWord = Words[selectedWordIndex];
+                        if (selectedWord.Translations.Count == 1)
+                        {
+                            Console.WriteLine($"Невозможно удалить последний перевод для слова '{selectedWord.Term}'. Нажмите любую клавишу для продолжения...");
+                            Console.ReadKey();
+                            return;
+                        }
+
+                        while (true)
+                        {
+                            Console.Clear();
+                            Console.WriteLine($"Выберите перевод для удаления из слова '{selectedWord.Term}':");
+                            DrawTranslationsMenu(selectedWord, selectedTranslationIndex);
+
+                            var translationKey = Console.ReadKey(true).Key;
+                            if (translationKey == ConsoleKey.Enter)
+                            {
+                                if (selectedTranslationIndex == selectedWord.Translations.Count)
+                                {
+                                    break;
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"Вы уверены, что хотите удалить перевод '{selectedWord.Translations[selectedTranslationIndex]}'? Нажмите Enter для подтверждения.");
+                                    var confirmationKey = Console.ReadKey(true).Key;
+                                    if (confirmationKey == ConsoleKey.Enter)
+                                    {
+                                        selectedWord.Translations.RemoveAt(selectedTranslationIndex);
+                                        using (StreamWriter sw = new StreamWriter(FilePath))
+                                        {
+                                            foreach (var word in Words)
+                                            {
+                                                sw.WriteLine($"{word.Term} - {string.Join(",", word.Translations)}");
+                                            }
+                                        }
+                                        Console.WriteLine($"Перевод удален. Нажмите любую клавишу для продолжения...");
+                                        Console.ReadKey();
+                                        return;
+                                    }
+                                }
+                            }
+                            else if (translationKey == ConsoleKey.UpArrow)
+                            {
+                                selectedTranslationIndex = Math.Max(0, selectedTranslationIndex - 1);
+                            }
+                            else if (translationKey == ConsoleKey.DownArrow)
+                            {
+                                selectedTranslationIndex = Math.Min(selectedWord.Translations.Count, selectedTranslationIndex + 1);
+                            }
+                        }
+                    }
+                }
+                else if (key == ConsoleKey.UpArrow)
+                {
+                    selectedWordIndex = Math.Max(0, selectedWordIndex - 1);
+                }
+                else if (key == ConsoleKey.DownArrow)
+                {
+                    selectedWordIndex = Math.Min(Words.Count, selectedWordIndex + 1); 
+                }
+            }
+        }
+
+        public void DrawWordsMenu(int selectedIndex)
+        {
+            for (int i = 0; i < Words.Count; i++)
+            {
+                if (i == selectedIndex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"> {Words[i].Term}");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    Console.WriteLine($"  {Words[i].Term}");
+                }
+            }
+
+            if (selectedIndex == Words.Count)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("> Назад");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.WriteLine("  Назад");
+            }
+        }
+
+        public void DrawWordsMenuWithOptions(int selectedIndex)
+        {
+            Console.Clear();
+
+            for (int i = 0; i < Words.Count; i++)
+            {
+                if (i == selectedIndex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"> {Words[i].Term}");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    Console.WriteLine($"  {Words[i].Term}");
+                }
+            }
+            if (selectedIndex == Words.Count)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"> Просмотр избранного");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.WriteLine("  Просмотр избранного");
+            }
+            if (selectedIndex == Words.Count + 1)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine($"> Назад");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.WriteLine("  Назад");
+            }
+        }
+
+
+
+
+        private void DrawTranslationsMenu(Word word, int selectedIndex)
+        {
+            Console.Clear();
+            for (int i = 0; i < word.Translations.Count; i++)
+            {
+                if (i == selectedIndex)
+                {
+                    Console.ForegroundColor = ConsoleColor.Yellow;
+                    Console.WriteLine($"> {word.Translations[i]}");
+                    Console.ResetColor();
+                }
+                else
+                {
+                    Console.WriteLine($"  {word.Translations[i]}");
+                }
+            }
+
+            if (selectedIndex == word.Translations.Count)
+            {
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("> Назад");
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.WriteLine("  Назад");
+            }
+        }
+        public void ViewDictionaries(List<Dictionary> dictionaries, Word word, int selectedIndex)
+        {
+            Console.Clear();
+            Console.WriteLine($"Переводы для слова '{word.Term}' в словаре:");
+
+            if (word.Translations.Count == 0)
+            {
+                Console.WriteLine("Переводы отсутствуют.");
+            }
+            else
+            {
+                for (int i = 0; i < word.Translations.Count; i++)
+                {
+                    Console.WriteLine($"{i + 1}. {word.Translations[i]}");
+                }
+            }
+
+            Console.WriteLine("Нажмите любую клавишу для продолжения...");
+            Console.ReadKey();
+        }
+        public void ViewFavouriteWords()
+        {
+            while (true)
+            {
+                Console.Clear();
+                Console.WriteLine($"Избранные слова в словаре '{Name}':");
+
+                if (File.Exists(FavouritesPath))
+                {
+                    string[] lines = File.ReadAllLines(FavouritesPath);
+                    if (lines.Length == 0)
+                    {
+                        Console.WriteLine("Избранные слова отсутствуют.");
+                    }
+                    else
+                    {
+                        foreach (string line in lines)
+                        {
+                            Console.WriteLine(line);
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("Файл с избранными словами не найден.");
+                }
+
+                Console.WriteLine("Нажмите Escape для возврата назад...");
+                var key = Console.ReadKey(true).Key;
+                if (key == ConsoleKey.Escape)
+                {
+                    return;
+                }
+            }
+        }
+
+    }
+
+    public class Word 
+    {
+        public string Term { get; set; }
+        public List<string> Translations { get; set; } = new List<string>();
+
+        public Word()
+        {
+
+        }
+
+        public Word(string term)
+        {
+            Term = term;
+        }
+
+        public void AddTranslation(string translation)
+        {
+            if (!Translations.Contains(translation))
+            {
+                Translations.Add(translation);
+            }
+        }
+    }
+
+    internal class Program
+    {
+        static void Main(string[] args)
+        {
+            List<Dictionary> dictionaries = Dictionary.LoadDictionaries();
+            
+            string[] menu = { "создать словарь", "добавить слово и перевод", "заменить слово или перевод",
+            "удалить слово или перевод", "найти перевод слова", "удалить словарь", "добавить в избранное", "сохранить и выйти" };
+            int menuIndex = 0;
+
+            while (true)
+            {
+                Dictionary.DrawMenu(menu, menuIndex);               
+                var key = Console.ReadKey(true).Key;
+                if (key == ConsoleKey.Enter)
+                {
+                    Console.Clear();
+                    switch (menuIndex)
+                    {
+                        case 0:
+                            Console.WriteLine("Введите название словаря: ");
+                            string dictionaryName = Console.ReadLine();
+
+                            if (string.IsNullOrEmpty(dictionaryName))
+                            {
+                                Console.WriteLine("Название словаря не может быть пустым!");
+                                break;
+                            }
+
+                            var newDictionary = new Dictionary(dictionaryName);
+                            newDictionary.CreateDictionary();
+                            dictionaries.Add(newDictionary);
+                            break;
+                        case 1:
+                            Console.Clear();
+                            if (dictionaries.Count == 0)
+                            {
+                                Console.WriteLine("Не найдено ни одного словаря. Сначала создайте словарь.\nНажмите любую клавишу, чтобы продолжить...");
+                                Console.ReadKey();
+                                break;
+                            }
+
+                            var selectedDictionary = Dictionary.ChooseDictionary(dictionaries);
+
+                            Console.Clear();
+                            Console.WriteLine("Введите слово: ");
+                            string termWord = Console.ReadLine();
+                            var word = new Word(termWord);
+                            bool translationAdded = false; 
+
+                            Console.Clear();
+                            while (true)
+                            {
+                                Console.WriteLine("Введите перевод. Нажмите Enter, чтобы продолжить.");
+                                string translation = Console.ReadLine();
+                                if (string.IsNullOrEmpty(translation))
+                                {
+                                    break;
+                                }
+                                word.AddTranslation(translation);
+                                translationAdded = true; 
+                                Console.WriteLine($"Перевод '{translation}' добавлен в словарь.");
+                            }
+
+                            if (translationAdded)
+                            {
+                                selectedDictionary.AddWord(word);
+                                selectedDictionary.AddWordAndTranslate(word);
+                                Console.WriteLine($"Слово '{word.Term}' и переводы добавлены в словарь '{selectedDictionary.Name}'. \nНажмите любую клавишу для продолжения...");
+                            }
+                            else
+                            {
+                                Console.WriteLine("Не добавлено ни одного перевода. Слово не сохранено в словаре. \nНажмите любую клавишу для продолжения...");
+                            }
+
+                            Console.ReadKey();
+                            break;
+
+                        case 2:
+                            Console.Clear();
+                            if (dictionaries.Count == 0)
+                            {
+                                Console.WriteLine("Не найдено ни одного словаря. Сначала создайте словарь.\nНажмите любую клавишу, чтобы продолжить...");
+                                Console.ReadKey();
+                                break;
+                            }
+                            selectedDictionary = Dictionary.ChooseDictionary(dictionaries);
+
+                            Console.Clear();
+                            string[] updateMenu = { "изменить слово", "изменить перевод", "назад" };
+                            int updateIndex = 0;
+
+                            while (true)
+                            {
+                                Dictionary.DrawMenu(updateMenu, updateIndex);
+                                var updateKey = Console.ReadKey(true).Key;
+                                if (updateKey == ConsoleKey.Enter)
+                                {
+                                    Console.Clear();
+                                    switch (updateIndex)
+                                    {
+                                        case 0:
+                                            selectedDictionary.UpdateWord();
+                                            break;
+                                        case 1:
+                                            selectedDictionary.UpdateTranslation();
+                                            break;
+                                        case 2:
+                                            break;
+                                    }
+                                    break;
+                                }
+                                else if (updateKey == ConsoleKey.UpArrow)
+                                {
+                                    updateIndex = Math.Max(0, updateIndex - 1);
+                                }
+                                else if (updateKey == ConsoleKey.DownArrow)
+                                {
+                                    updateIndex = Math.Min(updateMenu.Length - 1, updateIndex + 1);
+                                }
+                            }
+                            Dictionary.SaveDictionaries(dictionaries);
+                            break;
+                        case 3:
+                            Console.Clear();
+                            if (dictionaries.Count == 0)
+                            {
+                                Console.WriteLine("Не найдено ни одного словаря. Сначала создайте словарь.\nНажмите любую клавишу, чтобы продолжить...");
+                                Console.ReadKey();
+                                break;
+                            }
+                            selectedDictionary = Dictionary.ChooseDictionary(dictionaries);
+
+                            Console.Clear();
+                            string[] deleteMenu = { "удалить слово", "удалить перевод", "назад" };
+                            int deleteIndex = 0;
+
+                            while (true)
+                            {
+                                Dictionary.DrawMenu(deleteMenu, deleteIndex);
+                                var deleteKey = Console.ReadKey(true).Key;
+                                if (deleteKey == ConsoleKey.Enter)
+                                {
+                                    Console.Clear();
+                                    switch (deleteIndex)
+                                    {
+                                        case 0:
+                                            selectedDictionary.DeleteWord();
+                                            break;
+                                        case 1:
+                                            selectedDictionary.DeleteTranslation();
+                                            break;
+                                        case 2:
+                                            break;
+                                    }
+                                    break;
+                                }
+                                else if (deleteKey == ConsoleKey.UpArrow)
+                                {
+                                    deleteIndex = Math.Max(0, deleteIndex - 1);
+                                }
+                                else if (deleteKey == ConsoleKey.DownArrow)
+                                {
+                                    deleteIndex = Math.Min(deleteMenu.Length - 1, deleteIndex + 1);
+                                }
+                            }
+                            Dictionary.SaveDictionaries(dictionaries);
+                            break;
+                        case 4:
+                            Console.Clear();
+                            if (dictionaries.Count == 0)
+                            {
+                                Console.WriteLine("Не найдено ни одного словаря. Сначала создайте словарь.\nНажмите любую клавишу, чтобы продолжить...");
+                                Console.ReadKey();
+                                break;
+                            }
+                            selectedDictionary = Dictionary.ChooseDictionary(dictionaries);
+
+                            if (selectedDictionary.Words.Count == 0)
+                            {
+                                Console.WriteLine($"Словарь '{selectedDictionary.Name}' пуст. Добавьте слово с переводом сначала.");
+                                Console.WriteLine("Нажмите любую клавишу для продолжения...");
+                                Console.ReadKey();
+                                break;
+                            }
+
+                            int wordIndex = 0;
+                            while (true)
+                            {
+                                Console.Clear();
+                                Console.WriteLine($"Выберите слово для просмотра переводов в словаре '{selectedDictionary.Name}':");
+                                selectedDictionary.DrawWordsMenuWithOptions(wordIndex);
+
+                                var wordKey = Console.ReadKey(true).Key;
+                                if (wordKey == ConsoleKey.Enter)
+                                {
+                                    if (wordIndex == selectedDictionary.Words.Count)
+                                    {
+                                        selectedDictionary.ViewFavouriteWords();
+                                        break;
+                                    }
+                                    else if (wordIndex == selectedDictionary.Words.Count + 1)
+                                    {
+                                        break;
+                                    }
+
+                                    Word selectedWord = selectedDictionary.Words[wordIndex];
+                                    selectedDictionary.ViewDictionaries(dictionaries, selectedWord, 0); 
+                                    break;
+                                }
+                                else if (wordKey == ConsoleKey.UpArrow)
+                                {
+                                    wordIndex = Math.Max(0, wordIndex - 1);
+                                }
+                                else if (wordKey == ConsoleKey.DownArrow)
+                                {
+                                    wordIndex = Math.Min(selectedDictionary.Words.Count + 1, wordIndex + 1);
+                                }
+                            }
+                            break;
+
+                        case 5:
+                            if (dictionaries.Count == 0)
+                            {
+                                Console.WriteLine("Не найдено ни одного словаря. Сначала создайте словарь.\nНажмите любую клавишу, чтобы продолжить...");
+                                Console.ReadKey();
+                                break;
+                            }
+                            selectedDictionary = Dictionary.ChooseDictionary(dictionaries);
+
+                            Console.WriteLine($"Усли вы уверены, что хотите удалить словарь '{selectedDictionary.Name}', нажмите Enter\nНажмите любую клавишу для отмены... ");
+                            var confirmation = Console.ReadKey(true).Key;
+                            if (confirmation == ConsoleKey.Enter)
+                            {
+                                dictionaries.Remove(selectedDictionary);
+                                File.Delete(selectedDictionary.FilePath);
+                                Dictionary.SaveDictionaries(dictionaries);
+                                Console.WriteLine("Словарь удалён. Нажмите любую клавишу для продолжения...");
+                            }
+                            else
+                            {
+                                Console.WriteLine("Удаление отменено. Нажмите любую клавишу для продолжения...");
+                            }
+                            Console.ReadKey();
+                            break;
+                        case 6:
+                            if (dictionaries.Count == 0)
+                            {
+                                Console.WriteLine("Не найдено ни одного словаря. Сначала создайте словарь.\nНажмите любую клавишу, чтобы продолжить...");
+                                Console.ReadKey();
+                                break;
+                            }
+
+                            selectedDictionary = Dictionary.ChooseDictionary(dictionaries);
+
+                            if (selectedDictionary.Words.Count == 0)
+                            {
+                                Console.WriteLine($"Словарь '{selectedDictionary.Name}' пуст. Добавьте слово с переводом сначала.");
+                                Console.WriteLine("Нажмите любую клавишу для продолжения...");
+                                Console.ReadKey();
+                                break;
+                            }
+
+                            int favouriteWordIndex = 0;
+
+                            while (true)
+                            {
+                                Console.Clear();
+                                Console.WriteLine($"Выберите слово для добавления в избранное из словаря '{selectedDictionary.Name}':");
+                                selectedDictionary.DrawWordsMenu(favouriteWordIndex);
+
+                                var wordKey = Console.ReadKey(true).Key;
+                                if (wordKey == ConsoleKey.Enter)
+                                {
+                                    if (favouriteWordIndex == selectedDictionary.Words.Count)
+                                    {
+                                        break;
+                                    }
+
+                                    Word selectedWord = selectedDictionary.Words[favouriteWordIndex];
+
+                                    if (!selectedDictionary.FavouritesWords.Exists(w => w.Term == selectedWord.Term))
+                                    {
+                                        selectedDictionary.FavouritesWords.Add(selectedWord);
+
+                                        using (StreamWriter sw = new StreamWriter(selectedDictionary.FavouritesPath, true))
+                                        {
+                                            sw.WriteLine($"{selectedWord.Term} - {string.Join(",", selectedWord.Translations)}");
+                                        }
+
+                                        Console.WriteLine($"Слово '{selectedWord.Term}' добавлено в избранное.\nНажмите любую клавишу для продолжения...");
+                                        Console.ReadKey();
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine($"Слово '{selectedWord.Term}' уже находится в избранном.\nНажмите любую клавишу для продолжения...");
+                                        Console.ReadKey();
+                                    }
+
+                                    break;
+                                }
+                                else if (wordKey == ConsoleKey.UpArrow)
+                                {
+                                    favouriteWordIndex = Math.Max(0, favouriteWordIndex - 1);
+                                }
+                                else if (wordKey == ConsoleKey.DownArrow)
+                                {
+                                    favouriteWordIndex = Math.Min(selectedDictionary.Words.Count, favouriteWordIndex + 1);
+                                }
+                            }
+                            break;
+
+
+                        case 7:
+                            Dictionary.SaveDictionaries(dictionaries);
+                            return;
+                    }
+                }
+
+                switch (key)
+                {
+                    case ConsoleKey.DownArrow:
+                        if (menuIndex < menu.Length - 1) menuIndex++;
+                        break;
+                    case ConsoleKey.UpArrow:
+                        if (menuIndex > 0) menuIndex--;
+                        break;
+                }
+            }
+        }
+    }
+}
